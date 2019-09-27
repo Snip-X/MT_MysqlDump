@@ -51,16 +51,21 @@ for db in db_list:
         definitive_threads=table_list_len
     else:
         definitive_threads=nb_threads
+    rest=table_list_len%definitive_threads
+    print(rest)
     while len(table_list)>0:
-        rest=table_list_len%definitive_threads
         if rest == 0:
+            data=[None]*definitive_threads
             for i in range(definitive_threads):
-                Dumper(db,table_list[i],results.user,results.password,results.host,results.folder).start()
+                data[i]=Dumper(db,table_list[i],results.user,results.password,results.host,results.folder)
+                data[i].start()
                 table_list.remove(table_list[i])
-                i+=1
+            for i in range(definitive_threads):
+                data[i].join()
         else:
+            data=[None]*rest
             for i in range(rest):
-                Dumper(db,table_list[i],results.user,results.password,results.host,results.folder).start()
+                data[i]=Dumper(db,table_list[i],results.user,results.password,results.host,results.folder).start()
                 table_list.remove(table_list[i])
-                i+=1
+            rest=(table_list_len-i)%definitive_threads
 
