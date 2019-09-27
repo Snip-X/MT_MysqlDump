@@ -52,7 +52,6 @@ for db in db_list:
     else:
         definitive_threads=nb_threads
     rest=table_list_len%definitive_threads
-    print(rest)
     while len(table_list)>0:
         if rest == 0:
             data=[None]*definitive_threads
