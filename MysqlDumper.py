@@ -7,15 +7,27 @@ import argparse
 import mysql.connector
 
 class Dumper(Thread):
-    def __init__(self,db,table,user,password,host,folder):
+    def __init__(self,thread,db,table,user,password,host,folder,compress):
         Thread.__init__(self)
-        self.bashCommand = "mysqldump --quick -h "+str(host)+" -u"+str(user)+" -p"+str(password)+" "+str(db)+" "+str(table)
-        self.myoutput = open(str(folder)+"/dmp_"+str(db)+"/"+str(table)+".sql",'w+')
+        self.subcmd=""
+        if thread <= 1 && compress !=0 :
+            self.subcmd="pigz -9"
+            self.myoutput = open(str(folder)+"/dmp_"+str(db)+"/"+str(table)+".sql.gz",'w+')
+        elif thread > 1 && compress !=0:
+            self.subcmd="pigz -9 -p "+thread+""
+            self.myoutput = open(str(folder)+"/dmp_"+str(db)+"/"+str(table)+".sql.gz",'w+')
+        else:
+            self.bashCommand = "mysqldump --quick -h "+str(host)+" -u"+str(user)+" -p"+str(password)+" "+str(db)+" "+str(table)
+            self.myoutput = open(str(folder)+"/dmp_"+str(db)+"/"+str(table)+".sql",'w+')
         #" > "+
 
     def run(self):
-        
-        process = subprocess.run(self.bashCommand.split(), stdout=self.myoutput)
+        if self.subcmd !="":
+            process_dump = subprocess.run(self.bashCommand.split(), stdout=self.subcmd)
+            process_compress = subprocess.run(self.bashCommand.split(), stdin=process_dump.stdout stdout=self.myoutput)
+
+        else:
+            process_dump = subprocess.run(self.bashCommand.split(), stdout=self.myoutput)
         #output, error = process.communicate()
         #print(self.bashCommand)
 
@@ -25,6 +37,7 @@ parser = argparse.ArgumentParser(description='This is MysqlDumper! Home made, Mu
 parser.add_argument('-H', action='store', dest='host', default="127.0.0.1",help='Host to dump')
 parser.add_argument('-u', action='store', dest='user',help='User to use for dump your mysql Server')
 parser.add_argument('-F', action='store', dest='folder',help='Path of folder backup')
+parser.add_argument('-c', action='store', dest='compress',help='Compress in gzip format ?',type=int, default=0)
 parser.add_argument('-p', action='store', dest='password',help='Password of the specified user')
 parser.add_argument('-P', action='store', dest='parallel',help='Number of threads',type=int,default=1)
 parser.add_argument('-D', action='store', dest='databases',help='Databases you want to dump, if multiples DB please use delimiter \',\'',default=[])
@@ -36,6 +49,7 @@ results = parser.parse_args()
 mydb = mysql.connector.connect(host=results.host,user=results.user,passwd=results.password)
 mycursor = mydb.cursor()
 nb_threads=results.parallel
+compress=results.compress
 path=results.folder
 db_list=results.databases.split(", ")
 for db in db_list:
@@ -56,7 +70,7 @@ for db in db_list:
         if rest == 0:
             data=[None]*definitive_threads
             for i in range(definitive_threads):
-                data[i]=Dumper(db,table_list[i],results.user,results.password,results.host,results.folder)
+                data[i]=Dumper(nb_threads,db,table_list[i],results.user,results.password,results.host,results.folder,compress)
                 data[i].start()
                 table_list.remove(table_list[i])
             for i in range(definitive_threads):
@@ -64,7 +78,7 @@ for db in db_list:
         else:
             data=[None]*rest
             for i in range(rest):
-                data[i]=Dumper(db,table_list[i],results.user,results.password,results.host,results.folder).start()
+                data[i]=Dumper(nb_threads,db,table_list[i],results.user,results.password,results.host,results.folder).start()
                 table_list.remove(table_list[i])
             rest=(table_list_len-i)%definitive_threads
 
