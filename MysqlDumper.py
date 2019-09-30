@@ -50,7 +50,6 @@ nb_threads=results.parallel
 compress=results.compress
 path=results.folder
 db_list=results.databases.split(",")
-print(db_list)
 for db in db_list:
     myresult= []
     mycursor = mydb.cursor()
